@@ -12,8 +12,23 @@ A full list of libraries needed for run this code is included below.
 # Description:
 ![Code schema](https://raw.githubusercontent.com/ccsosa/edgeR_nf-core-rnaseq/main/images/edgeR_pipeline.drawio.png)
 
-# Steps
-- Prepare the samples file for running nf-core/rnaseq (please see the file added in the examples folder
+# Steps to nf-core/rnaseq stage 1 and 3 (This is mandatory to use this code)
+
+- Download the trascriptome and genome fasta files for your target species
+- Prepare a Salmon index file according to your needs (A large genome probably will work better with no decoy aware option) 
+  > See https://salmon.readthedocs.io/en/latest/salmon.html
+- Prepare the samples file for running nf-core/rnaseq (please see the file added in the examples folder `run5.csv`. The format is the following and contain the next columns:
+![Sample_fig](https://github.com/ccsosa/edgeR_nf-core-rnaseq/blob/main/images/sample_file_rnaseq.jpg)
+    -sample: This is the sample name used for nf-core/rnaseq and it represents a group and the SRR downloaded from NCBI. 
+    >(PLEASE USE "_" as separator always to use the automatic featture of the R code!)
+    - fastq_1: Directory of the forward fastq file for the SRR sample downloaded
+    - fastq_2: Directory of the reverse fastq file for the SRR sample downloaded
+    - strandedness: Represent the strand of the RNASeq experiment. Leave as unstranded. Salmon will detect the strandedness automatically
+      > For relevant information see: https://nf-co.re/rnaseq
+    
+    
+
+
 
 # Outcomes structure:
 This code creates a folder with the name given in the the `folder_name` parameter. The results have this structure:
