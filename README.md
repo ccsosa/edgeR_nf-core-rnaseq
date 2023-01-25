@@ -15,8 +15,15 @@ A full list of libraries needed for run this code is included below.
 ### Steps
 - Prepare the samples file for running nf-core/rnaseq (please see the file added in the examples folder
 
+### Outcomes structure:
 
+![Directory structure](https://github.com/ccsosa/edgeR_nf-core-rnaseq/blob/main/images/edgeR_outcomes.jpg)
+
+
+### How to run the code:
 ```r
+
+
 
 ##############################################################################
 #parameters
