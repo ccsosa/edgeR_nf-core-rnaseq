@@ -7,8 +7,6 @@ A full list of libraries needed to run this code is included below.
 
 **Imports:** `base, utils, methods, stats, ggplot2, tximport, parallel`
 
-
-
 # Description:
 
 This code perform the following steps described graphically in the following schema :
@@ -39,7 +37,7 @@ This code perform the following steps described graphically in the following sch
 - 12.) Creates a summary file for all up and downregulated genes for all the contrasts provided
 - 13.) Return a list with two slots: contrasts and the results of the contrasts (DEG)
 
-## Parameters required
+# Parameters required:
 - `folder_name` Folder name with the results obtained by nf-core/rnaseq results. 
     >If you have a folder named "2" this name will be used to call the metadata table and to name the folder with the outputs
 - `data_dir` Folder name with the results obtained by nf-core/rnaseq for the Salmon counts
@@ -54,7 +52,7 @@ This code perform the following steps described graphically in the following sch
     - If values are provided, they must respect the order used in the metadata file. the group_vect object will be:
      ```r group_vect <- c("CONTROL","CONTROL","DROUGHT","DROUGHT") ```
 
-## Outcomes structure:
+##Outcomes structure:
 This code creates a folder with the name given in the `folder_name` parameter. The results have this structure:
 ![Directory structure](https://github.com/ccsosa/edgeR_nf-core-rnaseq/blob/main/images/edgeR_outcomes.jpg)
 
@@ -97,7 +95,7 @@ TraesCS1A02G002700 | -0.517768365 | 5.575591155 | 11.08925656 | 0.010088987 | 0.
 - status_name : UP for positive logFC and DOWN for negative logFC)
 
 
-# Steps to nf-core/rnaseq stage 1 and 3 (This is mandatory to use this code)
+# Steps to nf-core/rnaseq stage 1 and 3 (This is mandatory to use this R code)
 
 - Download the transcriptome and genome fasta files for your target species
 - Prepare a Salmon index file according to your needs (A large genome probably will work better with no decoy aware option) 
@@ -127,12 +125,20 @@ nextflow run nf-core/rnaseq --input /scratch/bis_klpoe/chsos/data/sample_files/r
     -  -w (workdir)
 
 
-# How to run the code:
+# How to run the R code:
 -  Configure the config file to run nf-core/rnaseq pipeline stages 1 and 3 (https://nf-co.re/rnaseq) (An example is available in the folder examples)
 -  Run nf-core/rnaseq pipeline
 -  If the user has several salmon counts, please name the salmon file as salmon_[`folder_name`] (e.g. folder_name is "2")
 -  Detect metadata file to use. This is the sample file used for nf-core/rnaseq pipeline
--  
+-  Include in `met_dir` the folder where your sample data is saved (This is used as metadata to run DEG in edgeR)
+-  Select the number of cores to use `numCores`
+  > The number of cores never would be equal to the number of cores available in your machine
+- Define if you want to use a  group_vect object to assign samples into groups.
+  > The order you provide the groups must match to the sample order used in the sample file to run nf-core/rnaseq pipeline! 
+-  Define if you want to observe an exploratory plot in your own R session with the parameter `plot_MDS`
+- Load the code
+- Run
+
 
 ```r
 
