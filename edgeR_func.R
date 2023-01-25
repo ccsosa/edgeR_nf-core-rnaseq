@@ -1,481 +1,372 @@
+#' @title Automatic run of edgeR to obtain differential expressed genes
+#'
+#' @name DEG_edgeR_func
+#' @description compareGDEG_edgeR_func function provides a simple workflow to obtain differential gene expressed from nf-core/rnaseq outputs
+#' This function needs run first nf-core/rnaseq pipeline first. The steps done by this code are the following:
+#' 1.) Create output dir folder structure with two subfolders: csv and graphics
+#' 2.) Read Salmon outcomes (salmon_tx2gene.tsv, and tximport)
+#' 3.) Read the metadata file
+#' 4.) Create  groups for the samples based on the samples files provided for nf-core/rnaseq using combinatorics or using a group_vect object
+#' 5.) Save raw counts obtained from salmon files
+#' 6.) Creates a sample count table and calculate normalizing factors
+#' 7.) Creates a exploratory plot (plotMDS) and save it (MDS.pdf)
+#' 8.) Creates the design object to be use for differential expressed genes step
+#' 9.) Estimate the dispersion  and save a plot of it (plotBCV.pdf)
+#' 10.) Creates the contrast object to be use for differential expressed genes step (list)
+#' 11.) Run in parallel the next steps per contrast:
+#'      - Use a Fit a quasi-likelihood negative binomial generalized log-linear model (glmQLFit) with the design and contrasts
+#'      - Use glmQLFTest test to get the DEG outcome table
+#'      - Run a Benjamini-Hochberg procedure to obtain false discovery rate values (FDR)
+#'      - Split up and downregulated genes using the sign of the log2fold change
+#'      - Save raw and filtered by a p value results
+#'      - Save plots of glmQLFit and biological coefficient variance
+#' 12.) Creates a summary file for all up and downregulated genes for all the contrasts provided
+#' 13.) Return a list with two slots: contrasts and the results of the contrasts (DEG)
+#'
+#' @param folder_name Folder name with the results obtained by nf-core/rnaseq results.
+#'  If you have a folder name "2" this name will be used to call the metadata table and to name the folder with the outputs
+#' @param data_dir Folder name with the results obtained by nf-core/rnaseq for the Salmon counts
+#' @param out_dir Folder where the outcomes will be written
+#' @param met_dir  Folder where the metadata file will be loaded. Please name your metadata as folder name (e.g. run2.csv")
+#' @param pval p-value used to filter the results of differential expressed genes (default value = 0.05)
+#' @param numCores numeric, Number of cores to use for the process (default value numCores=2)
+#' @param plot_MDS This is a boolean value to indicate if the exploratory PCA plot should be displayed in the R session
+#' @param group_vect (default value numCores=2) This is a character object which represents the groups available in the metadata data.
+#'  If the value is NULL the script automatically will obtain groups using the sample names. For instance if there are four samples named
+#'  CONTROL_SRR1, CONTROL_SRR2,DROUGHT_SRR3, DROUGHT_SRR4, the groups will be control and drought respectively. If values are provided, they
+#'  must respect the order used in the metadata file. For the last example the group_vect object will be:
+#'  group_vect <- c("CONTROL","CONTROL","DROUGHT","DROUGHT")
+#' @return This function will return a list with two slots: contrasts and the results of the contrasts (DEG) (contrasts and contrasts_results respectively)
+#' @examples
+#'
+#' ####Loading parameters
+#' #Directories
+#'
+#' #Folder name
+#' folder_name <- "2" #(If there are several runs this helps to only get results from chunks)
+#' #Folder to save outputs
+#' #Salmon results folder
+#' data_dir <- paste0("/scratch/bis_klpoe/chsos/analysis/RESULTS_NF/salmon_",folder_name)
+#' out_dir <- "/scratch/bis_klpoe/chsos/analysis/DEG"
+#' #Folder where the nf-core/rnaseq sample metadata is available
+#' met_dir <- "/scratch/bis_klpoe/chsos/data/sample_files/DONE"
+#' #Other parameters
+#' #p value for filtering
+#' pval = 0.05
+#' #Number of CPU cores to use in parallel
+#' numCores <- 4
+#' #If plot should be appears in the R session
+#' plot_MDS <- TRUE
+#'
+#' #Running function
+#'
+#' x <- DEG_edgeR_func(data_dir = data_dir,
+#'                     folder_name = folder_name,
+#'                     out_dir = out_dir,
+#'                     met_dir = met_dir,
+#'                     pval = pval,
+#'                     plot_MDS = TRUE,
+#'                     numCores = 4,
+#'                     )
+#'
+#' @importFrom utils combn setTxtProgressBar txtProgressBar p.adjust
+#' @importFrom parallel makeCluster parLapplyLB stopCluster detectCores
+#' @importFrom edgeR DGEList calcNormFactors cpm estimateDisp glmQLFit plotQLDisp
+#' @importFrom limma plotMDS makeContrasts plotMD
+#' @importFrom ggplot2 ggplot
+#' @export
 
-DEG_edgeR_func <- function(chunk,lfc, pval,out_dir,met_dir,levels,omit_samples){
-  message(paste("chunk",chunk))
-  library(ggplot2); library(tidyr); library(edgeR) ;
-  library(tximport) ; library(readr); library(tidyr); 
-  library(openxlsx);require(data.table);library(RColorBrewer);
-  require(reshape2);require(ggpubr);library(ggvenn);#library(nVennR)
 
-  #deifining Jaccard similarity function
-  jaccard_similarity <- function(A, B) {
-    intersection = length(intersect(A, B))
-    union = length(A) + length(B) - intersection
-    x <- data.frame(Adiff =length(unique(setdiff(A,B))),
-                    Bdiff =length(unique(setdiff(B,A))),
-                    intersection =intersection,
-                    union=union,
-                    jaccard=intersection/union)
-    return (x)
+DEG_edgeR_func <- function(folder_name, data_dir,pval=0.05,data_dir,out_dir,met_dir,plot_MDS=T,numCores=2,group_vect=NULL){
+
+
+  message(paste("Processing folder:",folder_name))
+  library(ggplot2);library(edgeR);
+  library(tximport);library(parallel)
+  ##############################################################################
+  # Detecting number of cores for parallelizing
+
+  x_det <- NULL
+  x_det <- parallel::detectCores()
+  message(paste("Detecting cores, total cores are: ",x_det))
+  ##############################################################################
+  if (numCores > x_det) {
+    stop("Number of cores exceed the maximum allowed by the machine,
+         use a coherent number of cores such as four")
   }
-  
-  
-  data_dir <- paste0("/scratch/bis_klpoe/chsos/analysis/RESULTS_NF/salmon_",chunk)
-  tx2gene <- read.table(paste0(data_dir,"/","salmon_tx2gene.tsv"))
-  out_dir_1 <- paste0(out_dir,"/",chunk)
+
+  ##############################################################################
+  #Creating output dir folder
+
+  out_dir_1 <- paste0(out_dir,"/",folder_name)
   if(!dir.exists(out_dir_1)){
-    dir.create(paste0(out_dir,"/",chunk))
+    dir.create(paste0(out_dir,"/",folder_name))
   }
-  
-  
+  ##############################################################################
+  # Defining plot dirs for contrasts
+  plt_dir <- paste0(out_dir_1,"/graphics")
+  if(!dir.exists(plt_dir)){
+    dir.create(plt_dir)
+  }
+
+  # Defining csv dir for contrasts
+  csv_dir <- paste0(out_dir_1,"/csv")
+  if(!dir.exists(csv_dir)){
+    dir.create(csv_dir)
+  }
+
+  ##############################################################################
+  #Reading salmon files
+  message("Reading salmon files")
+
+  tx2gene <- read.table(paste0(data_dir,"/","salmon_tx2gene.tsv"))
+  #reading metadata
   #tx2gene
-  meta <- read.csv(paste0(met_dir,"/","run",chunk,".csv"), header = TRUE, sep=",")
+  meta <- read.csv(paste0(met_dir,"/","run",folder_name,".csv"), header = TRUE, sep=",")
   meta$trt <- sapply(strsplit(meta$sample,"_"),"[[",1)
-  
-  
-  if(!is.null(omit_samples)){
-    meta <- meta[!meta$sample %in% omit_samples,]
-    #meta <- meta[which(meta$sample!=omit_samples),]
-  }
-  
-  #meta$sample
+
+
+  #reading quant files
   list1 = paste0(data_dir,"/", meta$sample,"/", "quant.sf")
-  if(!is.null(omit_samples)){
-    #list1 <-list1[which(list1!=paste0(data_dir,"/", omit_samples,"/", "quant.sf"))]
-    list1 <- list1[list1!=paste0(data_dir,"/", omit_samples,"/", "quant.sf")]
-    #list1 <-list1[which(list1!=paste0(data_dir,"/", omit_samples,"/", "quant.sf"))]
-  }
-  
-  txi <- tximport(files=list1, type = "salmon", tx2gene = tx2gene)
+
+  #read salmon tximport
+  txi <- tximport::tximport(files=list1, type = "salmon", tx2gene = tx2gene)
   data <- as.data.frame(txi$counts)
   ab <-  as.data.frame(txi$abundance)
   df <- colSums(data)
-  
-  
+
+
   write.table(df, paste0(out_dir_1,"/","library_size.txt"), col.names = F, quote = F)
+
+  ##############################################################################
+  #Testing that groups have more than one sample. (this avoid NA dispersion values)
+  trt_summary <- as.data.frame(tapply(meta$trt,meta$trt,length))
+  trt_summary$group <- row.names(trt_summary)
+  trt_summary <- trt_summary[,c(2,1)]
+  colnames(trt_summary) <- c("group","count")
+
+
+  #Using group file if it is available
+  if(!is.null(group_vect)){
+    meta$trt <-   group_vect
+  } else {
+    #If a group have only one sample the function stops!
+    if(any(trt_summary$count==1)){
+      stop("Each group must have at least two samples, please check and provide
+           an object group_vect with the group and run again.")
+    }
+  }
+
+
+
+  ##############################################################################
+  message("Defining groups with the metadata provided and levels")
+
+  # Defining treatments
   colnames(data) <- meta$sample
   colnames(ab) <- meta$sample
-  trt <- factor(meta$trt,levels = levels)
-  
+  trt <- factor(meta$trt)#,levels = levels)
+
+  #Defining possible combinations
+  cmb_un <- as.data.frame(t(combn(levels(trt),2)))
+  colnames(cmb_un) <- c("SOURCE","TARGET")
+  cmb_un$COMP <- paste0(cmb_un$TARGET, "-", cmb_un$SOURCE)
+
+  message("Possible combinations available:",nrow(cmb_un))
+  print(cmb_un)
   # Save normalized (but not filtered) CPM
-  y <- DGEList(counts = data,group = trt)
+  y <- edgeR::DGEList(counts = data,group = trt)
   y$samples$lib.size <- colSums(y$counts)
-  y <- calcNormFactors(y)
-  write.table(cpm(y), paste0(out_dir_1,"/","CPM_normalized.txt"), col.names = T, row.names = T, quote = F, sep = "\t")
-  
+  y <- edgeR::calcNormFactors(y)
+
+
+  message("Saving raw data obtained (tpm and cpm)")
+
+  #saving cpm
+  write.table(edgeR::cpm(y), paste0(out_dir_1,"/","CPM_normalized.txt"), col.names = T, row.names = T, quote = F, sep = "\t")
   #save tpm
   write.table(ab, paste0(out_dir_1,"/","abundance_drought_tpm_genelevel.txt"), col.names = T, row.names = T, quote = F, sep = "\t")
-  
+
+  ##############################################################################
   # Filtering
-  keep <- rowSums(cpm(data)>1)>=2 #it was 3 
-  #keep <- filterByExpr(data)
-  
-  table(keep) # true false
-  data_kept <- data[keep,] # 11515 genes were removed, 22132 were retainded
-  #data_kept <- data[keep,]
-  
+  message("Filtering using cpm 2")
+  keep <- rowSums(edgeR::cpm(data)>1)>=2
+  data_kept <- data[keep,]
+  ##############################################################################
+  #normal factors
+  message("Normalizing")
   # Normalization and MDS plot
-  d <- DGEList(data_kept,group =trt)
+  d <- edgeR::DGEList(data_kept,group =trt)
   d$samples$lib.size <- colSums(d$counts)
-  d <- calcNormFactors(d)
-  
-  
-  t <- plotMDS(d,plot = F)
+  d <- edgeR::calcNormFactors(d)
+
+  ##############################################################################
+  #Plotting MDS
+  t <- limma::plotMDS(d,plot = F)
   MDS_df <- data.frame(t$x, t$y)
-  cols=brewer.pal(nrow(meta), "Set1")
-  
-  
-  MDS<- ggplot(data = MDS_df) +
-    geom_point(aes(x = t.x, y =t.y,  fill = meta$trt),size = 3, shape = 21)  +
+
+  #saving MDS with shapes (it plots numbers)
+
+  MDS<- ggplot2::ggplot(data = MDS_df) +
+    geom_point(aes(x = t.x, y =t.y,shape = meta$trt),size = 4)  +
     theme_bw() +
-    aes(label = meta$sample)+ #allpoints) +
-    # geom_text(hjust=0, vjust=0) +
+    #    aes(label = meta$sample)+ #allpoints) +
     theme(legend.box="horizontal") +
-    labs(fill = "Isolate") +
     xlab("Leading logFC dim1") +
     ylab("Leading logFC dim2") +
-    scale_fill_manual(values = cols) +
-    # scale_colour_brewer(palette="BrBG") +
-    scale_colour_fermenter() +
-    ggtitle("rice_drought") +
+    ggtitle("") +
+    scale_shape_manual(values = c(1:length(trt), letters, LETTERS, "0", "1"))+
     theme(panel.grid =element_blank())
-  #MDS
-  
+
+  MDS <- MDS +
+    guides(shape = guide_legend(title = "Groups"))
+
   ggsave(paste0(out_dir_1,"/","MDS.pdf"), MDS,height = 8, width = 8)
-  
-  # DE analysis
-  #trt <- meta$trt
-  trt <- trt
-  #design <- model.matrix(~ trt + 0)
-  #design <- model.matrix(~ trt ) #preferred
-  #design <- model.matrix(~0 + trt, data = data)
-  #rownames(design) <- meta$sample
-  
-  
+
+  if(plot_MDS==TRUE){
+    plot(MDS)
+  }
+  ##############################################################################
+  #Refining design to create contrasts
   #design
+  trt <- trt
+  #using treatments and 0 to do easily
   design <- model.matrix( ~0 + trt )
   colnames( design ) <- levels( trt )
-  contrasts <- makeContrasts( DRO_CTRL = DROUGHT - CONTROL ,
-                              # and so on for the other contrasts
-                              levels=design)
-  
-  
-  d <- estimateDisp(y = d, design = design,robust = T)
+
+  ##############################################################################
+  message("Estimate dispersion")
+  #estimateDisp
+  d <- edgeR::estimateDisp(y = d, design = design,robust = T)
   pdf(paste0(out_dir_1,"/","plotBCV.pdf"),height = 8, width = 8)
   plotBCV(d)
   dev.off()
-  
-  #exact tests no glm (can be skipped!)
-  # et <- exactTest(d)
-  # t_et <- topTags(et)
-  # View(t_et$table)
-  
-  
-  # Fit NB model through replicates of a treatment
-  fit <- glmQLFit(y = d, design = design,contrast=contrasts[,"DRO_CTRL"])
-  
-  pdf(paste0(out_dir_1,"/","plotQLDisp.pdf"),height = 8, width = 8)
-  plotQLDisp(fit)
-  dev.off()
-  
-  #testing glmQFTest
-  qlf.2vs1 <- glmQLFTest(glmfit = fit,contrast = contrasts[,"DRO_CTRL"])#,contrast = c(0,1)) #teest
-  qlf.2vs1$table$FDR <- p.adjust(qlf.2vs1$table$PValue,method = "BH")
-  is.updown_QL <- decideTestsDGE(qlf.2vs1, p.value = pval, adjust.method = "BH")
-  summary(is.updown_QL)
-  qlf.2vs1$table$is.updown <- as.numeric(is.updown_QL)
-  #tapply(qlf.2vs1$table$is.updown,qlf.2vs1$table$is.updown,length)
-  #t_et <- topTags(qlf.2vs1,n = 20) #see dif exact test
-  #summary(decideTests(qlf.2vs1, p.value=0.05))
-  
-  
-  # write.csv(is.updown_QL, file= paste0(out_dir_1,"/","glmQLFTest","_pval_", as.character(pval),".csv"),
-  #           row.names = T,quote = F)
-  
 
-  
-  
-  lfc_range <- paste0(round(max(qlf.2vs1$table$logFC[which(qlf.2vs1$table$is.updown==-1)]),2),
-                      "-",
-                      round(min(qlf.2vs1$table$logFC[which(qlf.2vs1$table$is.updown==1)]),2)
-                      )
+  ##############################################################################
+  #contrasts
+  message("Creating contrasts")
 
-  qlf <- qlf.2vs1$table
-  qlf$gene <- row.names(qlf)
-  qlf <- qlf[,c(colnames(qlf)[7],colnames(qlf)[1:6])]
-  
-  write.csv(qlf, file= paste0(out_dir_1,"/","glmQLFTest","_pval_", as.character(pval),"_","fulltable.csv"),
-            row.names = F,quote = F)
-  
-  
-  pdf(paste0(out_dir_1,"/","plotMD_glmQLFTest.pdf"),height = 8, width = 8)
-  plotMD(qlf.2vs1)
-  abline(h=c(-1, 1), col="blue")
-  dev.off()
-  
-  
-  q1 <- data.frame(count = tapply(qlf.2vs1$table$is.updown,qlf.2vs1$table$is.updown,length))
-  ###multiple lfc approach
-  
-  message("APPLYNG LFC threshold approach")
-  lfc_list <- list()
-  lfc_list_genes <- list()
-  
-  # L <- as.matrix(t(design))
-  # row.names(L) <- colnames(fit)
-  # L[2,][which(L[2,]==0)] <- -1
-  # L[1,] <- 0
-  #using glmTreat
-  
-  for(i in 1:length(lfc)){
-    message(lfc[[i]])
-  lfc_i <- lfc[[i]]
-  LR <- glmTreat(glmfit = fit, contrast = contrasts[,"DRO_CTRL"],lfc = lfc_i)
-  LR$table$FDR <- p.adjust(LR$table$PValue, "BH")
-  is.updown <- decideTestsDGE(LR, p.value = pval, adjust.method = "BH")
-  LR$table$is.updown <- as.numeric(is.updown)
-  #tapply(LR$table$is.updown,LR$table$is.updown,length)
-  
-  pdf(paste0(out_dir_1,"/","plotMD_glmTreat_lfc_",as.character(lfc_i),".pdf"),height = 8, width = 8)
-  plotMD(LR, status=is.updown, col=c("red","blue"), legend="topright")
-  abline(h=c(-1, 1), col="blue")
-  dev.off()
-  
-  
-  # write.csv(is.updown, file= paste0(out_dir_1,"/","lfc_", as.character(lfc),"_pval_", as.character(pval),".csv"),
-  #           row.names = F,quote = T)
-  
-  LR_t <- LR$table
-  LR_t$gene <- row.names(LR)
-  LR_t <- LR_t[,c(colnames(LR_t)[7],colnames(LR_t)[1:6])]
-  
-  write.csv(LR_t, file= paste0(out_dir_1,"/","lfc_", as.character(lfc_i),"_pval_", as.character(pval),"_","fulltable.csv"),
-            row.names = F,quote = F)
-  
-  #creating a summary table for each approach 
-  
-  
-  
-  q2 <- data.frame(count = tapply(LR$table$is.updown,LR$table$is.updown,length))
-  
-  
-  lfc_list[[i]] <- q2
-  lfc_list_genes[[i]] <-  LR_t[which(LR_t$is.updown!=0),]
-  rm(LR,is.updown,LR_t)
-  };rm(i)
-  
-  #verifying counts of decideTestsDGE
-  # q1a <- data.frame(count = tapply(qlf.2vs1$table$is.updown[which(qlf.2vs1$table$FDR<0.05)],
-  #                                  qlf.2vs1$table$is.updown[which(qlf.2vs1$table$FDR<0.05)],
-  #                                  length))
-  # 
-  # q2a <- data.frame(count = tapply(LR$table$is.updown[which(LR$table$FDR<0.05)],
-  #                                  LR$table$is.updown[which(LR$table$FDR<0.05)],
-  #                                  length))
-  # 
-  
-  
-  
-  summary <- as.data.frame(matrix(ncol = 4,nrow = length(lfc)+1))
-  colnames(summary) <- c("approach","-1","0","1")
-  summary[,1] <- c("glmQLFTest",paste0("glmTreat_lfc",lfc))
-  summary[1,1] <- paste0(summary[1,1],"s","(",lfc_range,")")
-  
-  
-  ###Venn diagrams
-  #sorting summary files to do a new one
-  lfc_list[[length(lfc_list)+1]] <- q1 # <- append(lfc_list, q1)
-  lfc_list <- lfc_list[c((length(lfc)+1),1:length(lfc))]
-  
-  approach <- summary$approach
-  approach <- sub(pattern = "glmTreat_",replacement = "",approach)
-  
-  #IF approach length >1 calculate intersects
-  
-  if(length(lfc_list)>1){
-  message("Plotting venn diagrams...")
-  #sorting genes for Venn diagram
-  lfc_list_genes[[length(lfc_list_genes)+1]] <-   qlf[which(qlf$is.updown!=0),] # <- append(lfc_list, q1)
-  lfc_list_genes <- lfc_list_genes[c((length(lfc_list_genes)),1:(length(lfc_list_genes))-1)]
-  
-  
-  message("UP diagram")
-  #UP
-  lfc_list_genes_up <- lapply(1:length(lfc_list_genes),function(i){
-    x <- lfc_list_genes[[i]]$gene[which(lfc_list_genes[[i]]$is.updown==1)]
-   return(x)
-  })
-  names(lfc_list_genes_up) <- approach
-  lfc_list_genes_up <- lapply(1:length(lfc_list_genes_up),function(i){
-    if(length(lfc_list_genes_up[[i]])==0){
-      x <- NULL
-    } else {
-      x <- lfc_list_genes_up[[i]]
-      #names(x) <- names(lfc_list_genes_up)[[i]]
-    }
-    
-  })
-  names(lfc_list_genes_up) <- approach
-  lfc_list_genes_up <- lfc_list_genes_up[!unlist(lapply(lfc_list_genes_up, is.null))]
-  lfc_list_genes_up2 <- lfc_list_genes_up[c(summary[1,1],"lfc0.25","lfc0.5")]
-  
-  #cols=brewer.pal(length(lfc_list_genes_up), "Set1")
-  #x_up <- process_region_data(Venn(lfc_list_genes_up))
-  #x_up$count[which(x_up$count==0)] <- NA
-  
-  
-  
-#  pdf(paste0(out_dir_1,"/","gvenn_up.pdf"),height = 8, width = 8)
-  # myNV <- plotVenn(sets = lfc_list_genes_up,sNames = names(lfc_list_genes_up),nCycles = 20000,showPlot = F)
-  # showSVG(myNV, opacity=0.2,showLegend = T,fontScale = 1.5,
-  #         outFile = paste0(out_dir_1,"/","gvenn_up.svg"),borderWidth = 0,systemShow = F,labelRegions = T)
- # dev.off()
-  
-  gvenn <- ggvenn(lfc_list_genes_up2,stroke_size = 0,
-                  set_name_size = 2.5,text_size = 3)
-  
-  
-  ggsave(paste0(out_dir_1,"/","gvenn_up.pdf"), gvenn,height = 8, width = 10)
-  
-
-  ##counting summary tables UP
-  x_up <- list()  
-  for(j in 1:length(lfc_list_genes_up)){
-    x_up_j <- list()
-    for(k in 2:length(lfc_list_genes_up)){
-      if(k>j){
-      x <- jaccard_similarity(A = lfc_list_genes_up[[j]],B=lfc_list_genes_up[[k]])
-      x$A <- names(lfc_list_genes_up)[[j]]
-      x$B <- names(lfc_list_genes_up)[[k]]
-      x_up_j[[k]] <- x
-      }
-    };rm(k)
-    x_up[[j]] <- do.call(rbind,x_up_j)
-    rm(x_up_j)
-  };rm(j)
-  x_up <- do.call(rbind,x_up)
-  x_up <- x_up[c(6,7,1:5)]
-  x_up$status <- "UP"
-  
-  message("DOWN diagram")
-  #DOWN
-  lfc_list_genes_down <- lapply(1:length(lfc_list_genes),function(i){
-    x <- lfc_list_genes[[i]]$gene[which(lfc_list_genes[[i]]$is.updown==-1)]
-    return(x)
-  })
-  names(lfc_list_genes_down) <- approach
-  lfc_list_genes_down <- lapply(1:length(lfc_list_genes_down),function(i){
-    if(length(lfc_list_genes_down[[i]])==0){
-      x <- NULL
-    } else {
-      x <- lfc_list_genes_down[[i]]
-      #names(x) <- names(lfc_list_genes_up)[[i]]
-    }
-    
-  })
-  names(lfc_list_genes_down) <- approach
-  
-  lfc_list_genes_down <- lfc_list_genes_down[!unlist(lapply(lfc_list_genes_down, is.null))]
-  lfc_list_genes_down2 <- lfc_list_genes_down[c(summary[1,1],"lfc0.25","lfc0.5")]
-  
-  gvenn <- ggvenn(lfc_list_genes_down2,stroke_size = 0,
-                  set_name_size = 2.5,text_size = 3)
-  ggsave(paste0(out_dir_1,"/","gvenn_down.pdf"), gvenn,height = 8, width = 10)
-  
-  ##counting summary tables DOWN
-  x_down <- list()  
-  for(j in 1:length(lfc_list_genes_up)){
-    x_down_j <- list()
-    for(k in 2:length(lfc_list_genes_up)){
-      if(k>j){
-        x <- jaccard_similarity(A = lfc_list_genes_up[[j]],B=lfc_list_genes_up[[k]])
-        x$A <- names(lfc_list_genes_up)[[j]]
-        x$B <- names(lfc_list_genes_up)[[k]]
-        x_down_j[[k]] <- x
-      }
-    };rm(k)
-    x_down[[j]] <- do.call(rbind,x_down_j)
-    rm(x_down_j)
-  };rm(j)
-  x_down <- do.call(rbind,x_down)
-  x_down <- x_down[c(6,7,1:5)]
-  x_down$status <- "DOWN"
-  
-  
-  #all
-  
-  message("!=0 diagram (DEG)")
-  lfc_list_genes_all <- lapply(1:length(lfc_list_genes),function(i){
-    if(nrow(lfc_list_genes[[i]])==0){
-      x <- NULL
-    } else {
-      x <-lfc_list_genes[[i]]$gene
-      #names(x) <- names(lfc_list_genes_up)[[i]]
-    }
-    return(x)
-  })
-  
-  names(lfc_list_genes_all) <- approach
-  
-  lfc_list_genes_all <- lfc_list_genes_all[!unlist(lapply(lfc_list_genes_all, is.null))] 
-  lfc_list_genes_all2 <- lfc_list_genes_all[c(summary[1,1],"lfc0.25","lfc0.5")]
-  
-  gvenn <- ggvenn(lfc_list_genes_all2,stroke_size = 0,
-                  set_name_size = 2.5,text_size = 3)
-  ggsave(paste0(out_dir_1,"/","gvenn_all.pdf"), gvenn,height = 8, width = 10)
-  
-  ##counting summary tables DOWN
-  x_all <- list()  
-  for(j in 1:length(lfc_list_genes_up)){
-    x_all_j <- list()
-    for(k in 2:length(lfc_list_genes_up)){
-      if(k>j){
-        x <- jaccard_similarity(A = lfc_list_genes_up[[j]],B=lfc_list_genes_up[[k]])
-        x$A <- names(lfc_list_genes_up)[[j]]
-        x$B <- names(lfc_list_genes_up)[[k]]
-        x_all_j[[k]] <- x
-      }
-    };rm(k)
-    x_all[[j]] <- do.call(rbind,x_all_j)
-    rm(x_all_j)
-  };rm(j)
-  x_all <- do.call(rbind,x_all)
-  x_all <- x_all[c(6,7,1:5)]
-  x_all$status <- "BOTH"
-  
+  message("Using automatical combinations, analyze carefully!")
+  if(nrow(cmb_un)>1){
+    contrasts <- list()
+    for(i in 1:nrow(cmb_un)){
+      contrasts[[i]] <- limma::makeContrasts(contrasts =  cmb_un$COMP[[i]],
+                                             levels=levels(trt))
+    };rm(i)
   } else {
-    message("Ommiting Venn diagrams, only one approach available")
+    contrasts <- list(limma::makeContrasts( contrasts = cmb_un$COMP[[1]] ,
+                                            levels=levels(trt)))
   }
-  
-  x_summary_counts <- rbind(x_up,x_down)
-  x_summary_counts <- rbind(x_summary_counts,x_all)
-  
-  write.csv(x_summary_counts, file= paste0(out_dir_1,"/","gene_interesects_summary.csv"),
-            row.names = F,quote = F)
-  
-  ###summary files
-  for(i in 1:nrow(summary)){
-    message(i)
-    # if(i==1){
-    #   x = q1
-    # } else {
-    #   x = lfc_list
-    # }
-    # 
-    if(length(as.character(lfc_list[i][[1]][which(row.names(lfc_list[i][[1]])=="-1"),]))>0){
-      summary[i,2] <- as.character(lfc_list[i][[1]][which(row.names(lfc_list[i][[1]])=="-1"),]) 
-    } else {
-      summary[i,2] <- NA
-    }
-    
-    if(length(as.character(lfc_list[i][[1]][which(row.names(lfc_list[i][[1]])=="0"),]))>0){
-      summary[i,3] <- as.character(lfc_list[i][[1]][which(row.names(lfc_list[i][[1]])=="0"),]) 
-    } else {
-      summary[i,3] <- NA
-    }
-    
-    if(length(as.character(lfc_list[i][[1]][which(row.names(lfc_list[i][[1]])=="1"),]))>0){
-      summary[i,4] <- as.character(lfc_list[i][[1]][which(row.names(lfc_list[i][[1]])=="1"),]) 
-    } else {
-      summary[i,4] <- NA
-    }
-  };rm(i)
-  
-  
-  write.csv(summary, file= paste0(out_dir_1,"/","summary.csv"),
-            row.names = F,quote = F)
-  
-  
-  xx_sum <- melt(summary,"approach")
-  xx_sum$value <- as.numeric(xx_sum$value)
-  for(i in 1:nrow(xx_sum)){
-    if(is.na(xx_sum$value[[i]])){
-      xx_sum$value[[i]] <- NA
-    } else {
-      xx_sum$value[[i]] <- log10(xx_sum$value[[i]])
-    }
-  };rm(i)
 
-  xx_sum_graph <- ggbarplot(xx_sum, x = "approach", y = "value", color = "variable",fill="variable",
-            add = "mean_se", palette = c("red","gray","blue"),ylab="log10(counts)",
-          #  angle=-90,
-            position = position_dodge())
-  xx_sum_graph <- xx_sum_graph + rotate_x_text(90)  
-  
-  ggsave(paste0(out_dir_1,"/","summary_graph.pdf"), xx_sum_graph,height = 8, width = 8)
-  
+  message(paste("Contrasts provided: ",length(contrasts)))
+  ##############################################################################
+  #obtaining DEG per contrast
+  message(paste0("Calculating DE genes in parallel, using ",numCores," cores"))
+  if(length(contrasts)==1){
+    warning("Only one contrast will be run")
+  }
+  if(length(contrasts)>0){
+    #Using parallel approach
+    cl <- parallel::makeCluster(numCores)
+    parallel::clusterExport(cl, varlist=c("contrasts","d","design",
+                                          "pval","cmb_un","plt_dir",
+                                          "csv_dir"),envir=environment())
+
+    cont_results <- parallel::parLapplyLB(cl,
+                                          X = seq_len(length(contrasts)),
+                                          fun = function (i){
+                                            #glmQLFit
+                                            fit <- edgeR::glmQLFit(y = d, design = design,contrast=contrasts[[i]])
+                                            pdf(paste0(plt_dir,"/",cmb_un$COMP[[i]],"_BCV.pdf"),height = 8, width = 8)
+                                            edgeR::plotQLDisp(fit)
+                                            dev.off()
+
+                                            #testing glmQFTest
+                                            qlf.2vs1 <- edgeR::glmQLFTest(glmfit = fit,contrast = contrasts[[i]])
+                                            qlf.2vs1$table$FDR <- p.adjust(qlf.2vs1$table$PValue,method = "BH")
+                                            qlf.2vs1$table$status <- as.factor(sign(qlf.2vs1$table$logFC))
+                                            #defining names for values 1 and -1
+                                            qlf.2vs1$table$status_name <- NA
+                                            qlf.2vs1$table$status_name[which(qlf.2vs1$table$status=="1")] <- "UP"
+                                            qlf.2vs1$table$status_name[which(qlf.2vs1$table$status=="-1")] <- "DOWN"
+                                            #qlf.2vs1$table$status_name[which(qlf.2vs1$table$status=="1")] <- cmb_un$TARGET[[i]]
+                                            #qlf.2vs1$table$status_name[which(qlf.2vs1$table$status=="-1")] <- cmb_un$SOURCE[[i]]
+                                            #subsetting and saving
+                                            qlf.2vs1_final <- qlf.2vs1$table
+                                            qlf.2vs1_final2 <- qlf.2vs1_final[which(qlf.2vs1_final$FDR < pval),]
+
+                                            message(paste0("Genes kept after filtering: ",nrow(qlf.2vs1_final2)), "printing groups...")
+                                            print(tapply(qlf.2vs1_final2$status_name,qlf.2vs1_final2$status_name,length))
+
+                                            #saving in csv tables (full and filtered)
+                                            write.csv(qlf.2vs1_final, file= paste0(csv_dir,"/","glmQLFTest_",
+                                                                                   cmb_un$COMP[[i]],"_","pval_",
+                                                                                   as.character(pval),"_","fulltable.csv"),
+                                                      row.names = T,quote = F)
+                                            write.csv(qlf.2vs1_final2, file= paste0(csv_dir,"/","glmQLFTest_",
+                                                                                    cmb_un$COMP[[i]],"_","pval_",
+                                                                                    as.character(pval),"_","filtered.csv"),
+                                                      row.names = T,quote = F)
+
+
+                                            #plot significant genes
+
+                                            pdf(paste0(plt_dir,"/","plotMD_glmQLFTest_",cmb_un$COMP[[i]],".pdf"),height = 8, width = 8)
+                                            limma::plotMD(qlf.2vs1)
+                                            #abline(h=c(-1, 1), col="blue")
+                                            dev.off()
+
+
+                                            q1 <- data.frame(count = tapply(qlf.2vs1_final2$status_name,qlf.2vs1_final2$status_name,length))
+                                            q1$groups <- row.names(q1)
+                                            q1 <- q1[,c(2,1)]
+                                            print(q1)
+                                            #saving in csv tables (full and filtered)
+                                            write.csv(q1, file= paste0(out_dir_1,"/","glmQLFTest_",
+                                                                       cmb_un$COMP[[i]],"_","pval_",
+                                                                       as.character(pval),"_","summary.csv"),
+                                                      row.names = F)
+
+                                            #Do not move it is need to return qlf.2vs1_final
+                                            qlf.2vs1_final2
+                                          })
+
+    parallel::stopCluster(cl)
+  } else {
+    stop("no contrasts to run.") #NEW
+    cont_results <- NULL # NEW
+  }
+
+  final_list <- list(contrasts = contrasts,
+                     contrasts_results=cont_results)
   message("DONE!")
-  
+  return(final_list)
+
 }
 
-
-lfc=c(0.25,0.5,1,1.5,2)
-chunk <- 2#2#2 #1
-pval = 0.05
+##############################################################################
+#parameters
+folder_name <- "2" #folder name
+pval = 0.05 #p value for filtering
+numCores <- 4 #number of cores to use in parallel
+plot_MDS <- TRUE #if plot should be appears in R session
+#groups if it not easy to get from the headers
+#group_vect <- c("DT6H","CK0H","ABA6H","CK0H","DT6H","ABA6H","CK0H","DT6H","ABA6H")
+group_vect <- NULL
+##############################################################################
+#Directories
+#where are the salmon files
+data_dir <- paste0("/scratch/bis_klpoe/chsos/analysis/RESULTS_NF/salmon_",folder_name)
+#defining output folder
 out_dir <- "/scratch/bis_klpoe/chsos/analysis/DEG"
+#path where the nf core metadata is available
 met_dir <- "/scratch/bis_klpoe/chsos/data/sample_files/DONE"
-levels <- factor(c("CONTROL","DROUGHT"))
-omit_samples <- NULL# "CONTROL_SRR5225300" #$#NULL normally activate in 2
-x <- DEG_edgeR_func(chunk,lfc, pval,out_dir,met_dir,levels,omit_samples)
-#https://f1000research.com/articles/5-1438/v2
-
-
+##############################################################################
+x <- DEG_edgeR_func(folder_name=folder_name,
+                    data_dir=data_dir,
+                    pval=pval,
+                    out_dir=out_dir,
+                    met_dir=met_dir,
+                    plot_MDS=TRUE,
+                    numCores=4,
+                    group_vect=group_vect)
