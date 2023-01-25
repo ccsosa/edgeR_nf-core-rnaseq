@@ -20,6 +20,7 @@ This code creates a folder with the name given in the the `folder_name` paramete
 #`csv`: CSV files obtained from the edgeR pipeline. Two files are created per contrast:
 -  glmQLFTest_[CONTRAST]_pval_[pval]fulltable.csv (Outcome without p value filter)
 -  glmQLFTest_[CONTRAST]_pval_[pval]_filtered.csv (Outcome with p value filter)
+ 
 # These files have the following structure:
 
 "" | logFC | logCPM | F | PValue | FDR | status | status_name
