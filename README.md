@@ -1,6 +1,6 @@
 # edgeR_nf-core-rnaseq
-This repository consists of a function to implement an edgeR R package pipeline which obtains differential expressed genes automatically throughtCPU-parallelized computing. 
-from nf-core/rnaseq pipeline stage 1 and 3 (Salmon pseudolignment and count based)
+This repository consists of a set of functions to use implement an edgeR R package pipeline which obtains differential expressed genes automatically throughtCPU-parallelized computing. 
+
 A full list of libraries needed for run this code is included below.
 
 **Dependencies:** `R (>= 4.0.0)`
@@ -10,39 +10,38 @@ A full list of libraries needed for run this code is included below.
 
 
 # Description:
-This code performs the following steps:
+
+This code perform the following steps described graphically in the following schema :
 
 ![Code schema](https://raw.githubusercontent.com/ccsosa/edgeR_nf-core-rnaseq/main/images/edgeR_pipeline.drawio.png)
 
-# Steps to nf-core/rnaseq stage 1 and 3 (This is mandatory to use this code)
+## Data preprocessing
+- 1.) Create output dir folder structure with two subfolders: csv and graphics
+- 2.) Read Salmon outcomes (salmon_tx2gene.tsv, and tximport)
+- 3.) Read the metadata file
+- 4.) Create  groups for the samples based on the samples files provided for nf-core/rnaseq using combinatorics or using a group_vect object
 
-- Download the trascriptome and genome fasta files for your target species
-- Prepare a Salmon index file according to your needs (A large genome probably will work better with no decoy aware option) 
-  > See https://salmon.readthedocs.io/en/latest/salmon.html
-- Prepare the samples file for running nf-core/rnaseq (please see the file added in the examples folder `run5.csv`. The format is the following and contain the next columns:
-![Sample_fig](https://github.com/ccsosa/edgeR_nf-core-rnaseq/blob/main/images/sample_file_rnaseq.jpg)
-    -sample: This is the sample name used for nf-core/rnaseq and it represents a group and the SRR downloaded from NCBI. 
-    >(PLEASE USE "_" as separator always to use the automatic featture of the R code!)
-    - fastq_1: Directory of the forward fastq file for the SRR sample downloaded
-    - fastq_2: Directory of the reverse fastq file for the SRR sample downloaded
-    - strandedness: Represent the strand of the RNASeq experiment. Leave as unstranded. Salmon will detect the strandedness automatically
-      > For relevant information see: https://nf-co.re/rnaseq
-- Submit to your HPC for processing using your resource management tool (An example is provided in the examples folder).
-```
-    #!/bin/bash
-module load  nextflow
-nextflow run nf-core/rnaseq --input /scratch/bis_klpoe/chsos/data/sample_files/run5.csv --skip_alignment --outdir /scratch/bis_klpoe/chsos/analysis/ --pseudo_aligner 'salmon' -profile singularity -c /scratch/bis_klpoe/chsos/data/config_file/nfcore_rna_seq.config -w /scratch/bis_klpoe/chsos/analysis/work  --salmon_quant_libtype A
-```
-- Run parameters:
-    - --skip_alignment (skip use alignment)
-    -  --pseudo_aligner 'salmon' (Use Salmon for pseudoalignments and counts)
-    -  --salmon_quant_libtype A (Allows salmon to find the samples strandedness)
-    -  --input (sample file prepared previously
-    -  --outdir (Folder  to save the nf-core/rnaseq results)
-    -  -profile singularity (Use singularity docker)
-    -  -c (Configuration file to be read)
-    -  -w (Workdir)
+## edgeR preprocessing
+- 5.) Save raw counts obtained from salmon files
+- 6.) Creates a sample count table and calculate normalizing factors
+- 7.) Creates a exploratory plot (plotMDS) and save it (MDS.pdf)
+- 8.) Creates the design object to be use for differential expressed genes step
+- 9.) Estimate the dispersion  and save a plot of it (plotBCV.pdf)
+- 10.) Creates the contrast object to be use for differential expressed genes step (list)
+## edgeR paralleling processing
+- 11.) Run in parallel the next steps per contrast:
+    - Use a Fit a quasi-likelihood negative binomial generalized log-linear model (glmQLFit) with the design and contrasts
+    - Use glmQLFTest test to get the DEG outcome table
+    - Run a Benjamini-Hochberg procedure to obtain false discovery rate values (FDR)
+    - Split up and downregulated genes using the sign of the log2fold change
+    - Save raw and filtered by a p value results
+    - Save plots of glmQLFit and biological coefficient variance
+- 12.) Creates a summary file for all up and downregulated genes for all the contrasts provided
+- 13.) Return a list with two slots: contrasts and the results of the contrasts (DEG)
 
+
+# Nextflow (nf-core/rnaseq) steps
+- Prepare the samples file for running nf-core/rnaseq (please see the file added in the examples folder 
 
 # Outcomes structure:
 This code creates a folder with the name given in the the `folder_name` parameter. The results have this structure:
@@ -64,7 +63,6 @@ In the main folder the next files are saved:
   - contrasts.csv (Contrast designed infered by limma and edgeR)
   - plotBCV.pdf (Average log CPM Vs biological coefficient variation plot)
   - MDS.pdf (Multidimensional plot, each group is displayed in numbers)
-
 - Summaries per contrast 
   - glmQLFTest_[CONTRAST]_pval_[pval]summary.csv (Summary of up and downregulated genes per contrast after apply a p-value threshold)
  
@@ -95,14 +93,7 @@ TraesCS1A02G002700 | -0.517768365 | 5.575591155 | 11.08925656 | 0.010088987 | 0.
 -  Run nf-core/rnaseq pipeline
 -  If user have several salmon counts, please name the salmon file as salmon_[`folder_name`] (e.g. folder_name is "2")
 -  Detect metadata file to use. This is the sample file used for nf-core/rnaseq pipeline
--  Include in `met_dir` the folder where your sample data is saved (This is used as metadata to run DEG in edgeR)
--  Select the number of cores to use `numCores`
-  > The number of cores never would be equal to the number of cores available in your machine
-- Define if you want to use a  group_vect object to assign samples to the into groups.
-  > The order you provide the groups must match to the sample order used in the sample file to run nf-core/rnaseq pipeline! 
--  Define if you want to observe an exploratory plot in your own R session with the parameter `plot_MDS`
-- Load the code
-- Run
+-  
 
 ```r
 
