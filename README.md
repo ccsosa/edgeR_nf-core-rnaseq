@@ -97,8 +97,34 @@ TraesCS1A02G002700 | -0.517768365 | 5.575591155 | 11.08925656 | 0.010088987 | 0.
 - status_name : UP for positive logFC and DOWN for negative logFC)
 
 
-# Nextflow (nf-core/rnaseq) steps
-- Prepare the samples file for running nf-core/rnaseq (please see the file added in the examples folder 
+# Steps to nf-core/rnaseq stage 1 and 3 (This is mandatory to use this code)
+
+- Download the transcriptome and genome fasta files for your target species
+- Prepare a Salmon index file according to your needs (A large genome probably will work better with no decoy aware option) 
+  > See https://salmon.readthedocs.io/en/latest/salmon.html
+- Prepare the samples file for running nf-core/rnaseq (please see the file added in the examples folder `run5.csv`. The format is the following and contains the next columns:
+![Sample_fig](https://github.com/ccsosa/edgeR_nf-core-rnaseq/blob/main/images/sample_file_rnaseq.jpg)
+    -sample: This is the sample name used for nf-core/rnaseq and it represents a group and the SRR downloaded from NCBI. 
+    >(PLEASE USE "_" as a separator always to use the automatic feature of the R code!)
+    - fastq_1: Directory of the forward fastq file for the SRR sample downloaded
+    - fastq_2: Directory of the reverse fastq file for the SRR sample downloaded
+    - strandedness: Represent the strand of the RNA-Seq experiment. Leave as unstranded. Salmon will detect strandedness automatically
+      > For relevant information see: https://nf-co.re/rnaseq
+- Submit to your HPC for processing using your resource management tool (An example is provided in the examples folder).
+```
+    #!/bin/bash
+module load  nextflow
+nextflow run nf-core/rnaseq --input /scratch/bis_klpoe/chsos/data/sample_files/run5.csv --skip_alignment --outdir /scratch/bis_klpoe/chsos/analysis/ --pseudo_aligner 'salmon' -profile singularity -c /scratch/bis_klpoe/chsos/data/config_file/nfcore_rna_seq.config -w /scratch/bis_klpoe/chsos/analysis/work  --salmon_quant_libtype A
+```
+- Run parameters:
+    - --skip_alignment (skip use alignment)
+    -  --pseudo_aligner 'salmon' (Use Salmon for pseudo alignments and counts)
+    -  --salmon_quant_libtype A (Allows salmon to find the samples strandedness)
+    -  --input (sample file prepared previously
+    -  --outdir (Folder  to save the nf-core/rnaseq results)
+    -  -profile singularity (Use singularity docker)
+    -  -c (Configuration file to be read)
+    -  -w (workdir)
 
 
 # How to run the code:
