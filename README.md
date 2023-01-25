@@ -7,9 +7,16 @@ A full list of libraries needed to run this code is included below.
 
 **Imports:** `base, utils, methods, stats, ggplot2, tximport, parallel`
 
+## example files loaded
+- INDEX_BASH_1.sh (Salmon order to get a salmon index folder with the files to run nf-core/rnaseq) 
+    >This must be done before run nf-core/rnaseq pipeline!
+- run_5.sh (Bash script to download the SRR samples from NCBI with fastq-dump)
+- run5.csv (nf-core/rnaseq sample file to be used to get the salmon counts)
+- run5_nf_test.sh (Bash script to run nextflow nf-core/rnaseq)
+
 # Description:
 
-This code perform the following steps described graphically in the following schema :
+This code performs the following steps described graphically in the following schema :
 
 ![Code schema](https://raw.githubusercontent.com/ccsosa/edgeR_nf-core-rnaseq/main/images/edgeR_pipeline.drawio.png)
 
@@ -52,14 +59,14 @@ This code perform the following steps described graphically in the following sch
     - If values are provided, they must respect the order used in the metadata file. the group_vect object will be:
      ```r group_vect <- c("CONTROL","CONTROL","DROUGHT","DROUGHT") ```
 
-##Outcomes structure:
+## R code outcomes structure:
 This code creates a folder with the name given in the `folder_name` parameter. The results have this structure:
 ![Directory structure](https://github.com/ccsosa/edgeR_nf-core-rnaseq/blob/main/images/edgeR_outcomes.jpg)
 
 This code will create two subfolders:
 - `csv`: CSV files obtained from the edgeR pipeline. Two files are created per contrast:
-  - glmQLFTest_[CONTRAST]_pval_[pval]fulltable.csv (Outcome without p value filter)
-  - glmQLFTest_[CONTRAST]_pval_[pval]_filtered.csv (Outcome with a p value threshold filter)
+  - glmQLFTest_[CONTRAST]_pval_[pval]fulltable.csv (Outcome without p-value filter)
+  - glmQLFTest_[CONTRAST]_pval_[pval]_filtered.csv (Outcome with a p-value threshold filter)
 - `graphics`: subfolder to save the edgeR plots per contrast. Two files are created per contrast:
   - plotMD_glmQLFTest_[CONTRAST].pdf (Average log CPM vs LFC  value displaying differential expressed genes)
   - [CONTRAST]_BCV.pdf (Average Log2 CPM Vs Quarter root mean deviance)
@@ -95,12 +102,13 @@ TraesCS1A02G002700 | -0.517768365 | 5.575591155 | 11.08925656 | 0.010088987 | 0.
 - status_name : UP for positive logFC and DOWN for negative logFC)
 
 
-# Steps to nf-core/rnaseq stage 1 and 3 (This is mandatory to use this R code)
+# Steps to run nf-core/rnaseq stage 1 and 3 (This is mandatory to use this R code)
 
 - Download the transcriptome and genome fasta files for your target species
-- Prepare a Salmon index file according to your needs (A large genome probably will work better with no decoy aware option) 
+- Prepare a Salmon index file according to your needs (A large genome probably will work better with no decoy aware option)  (see example file: INDEX_BASH_1.sh )
   > See https://salmon.readthedocs.io/en/latest/salmon.html
-- Prepare the samples file for running nf-core/rnaseq (please see the file added in the examples folder `run5.csv`. The format is the following and contains the next columns:
+ - Download the SRR samples with the fastq files from NCBI using fastq-dump (see example file: run_5.sh)
+- Prepare the samples file for running nf-core/rnaseq (please see the file added in the examples folder:`run5.csv`). The format is the following and contains the next columns:
 ![Sample_fig](https://github.com/ccsosa/edgeR_nf-core-rnaseq/blob/main/images/sample_file_rnaseq.jpg)
     -sample: This is the sample name used for nf-core/rnaseq and it represents a group and the SRR downloaded from NCBI. 
     >(PLEASE USE "_" as a separator always to use the automatic feature of the R code!)
@@ -108,7 +116,7 @@ TraesCS1A02G002700 | -0.517768365 | 5.575591155 | 11.08925656 | 0.010088987 | 0.
     - fastq_2: Directory of the reverse fastq file for the SRR sample downloaded
     - strandedness: Represent the strand of the RNA-Seq experiment. Leave as unstranded. Salmon will detect strandedness automatically
       > For relevant information see: https://nf-co.re/rnaseq
-- Submit to your HPC for processing using your resource management tool (An example is provided in the examples folder).
+- Submit to your HPC for processing using your resource management tool (An example is provided in the examples folder: run5_nf_test.sh).
 ```
     #!/bin/bash
 module load  nextflow
@@ -135,7 +143,7 @@ nextflow run nf-core/rnaseq --input /scratch/bis_klpoe/chsos/data/sample_files/r
   > The number of cores never would be equal to the number of cores available in your machine
 - Define if you want to use a  group_vect object to assign samples into groups.
   > The order you provide the groups must match to the sample order used in the sample file to run nf-core/rnaseq pipeline! 
--  Define if you want to observe an exploratory plot in your own R session with the parameter `plot_MDS`
+-  Define if you want to observe an exploratory plot in your R session with the parameter `plot_MDS`
 - Load the code
 - Run
 
