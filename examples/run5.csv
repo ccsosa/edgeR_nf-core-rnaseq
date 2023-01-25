@@ -1,0 +1,7 @@
+sample,fastq_1,fastq_2,strandedness
+DROUGHT_SRR17729734,/scratch/bis_klpoe/chsos/data/raw/SRR17729734_1.fastq.gz,/scratch/bis_klpoe/chsos/data/raw/SRR17729734_2.fastq.gz,unstranded
+DROUGHT_SRR17729735,/scratch/bis_klpoe/chsos/data/raw/SRR17729735_1.fastq.gz,/scratch/bis_klpoe/chsos/data/raw/SRR17729735_2.fastq.gz,unstranded
+DROUGHT_SRR17729736,/scratch/bis_klpoe/chsos/data/raw/SRR17729736_1.fastq.gz,/scratch/bis_klpoe/chsos/data/raw/SRR17729736_2.fastq.gz,unstranded
+CONTROL_SRR17729737,/scratch/bis_klpoe/chsos/data/raw/SRR17729737_1.fastq.gz,/scratch/bis_klpoe/chsos/data/raw/SRR17729737_2.fastq.gz,unstranded
+CONTROL_SRR17729738,/scratch/bis_klpoe/chsos/data/raw/SRR17729738_1.fastq.gz,/scratch/bis_klpoe/chsos/data/raw/SRR17729738_2.fastq.gz,unstranded
+CONTROL_SRR17729739,/scratch/bis_klpoe/chsos/data/raw/SRR17729739_1.fastq.gz,/scratch/bis_klpoe/chsos/data/raw/SRR17729739_2.fastq.gz,unstranded
