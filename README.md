@@ -57,8 +57,8 @@ This code performs the following steps described graphically in the following sc
 - `group_vect` (default value numCores=2) This is a character object which represents the groups available in the metadata data.
     - If the value is NULL the script automatically will obtain groups using the sample names. 
     - For instance, if there are four samples named CONTROL_SRR1, CONTROL_SRR2,DROUGHT_SRR3, DROUGHT_SRR4, the groups will be control and drought respectively.
-    - If values are provided, they must respect the order used in the metadata file. the group_vect object will be:
-     ```r group_vect <- c("CONTROL","CONTROL","DROUGHT","DROUGHT") ```
+    - If values are provided, they must respect the order used in the metadata file. The group_vect object will be:
+     ``` group_vect <- c("CONTROL","CONTROL","DROUGHT","DROUGHT") ```
 
 ## R code outcomes structure:
 This code creates a folder with the name given in the `folder_name` parameter. The results have this structure:
