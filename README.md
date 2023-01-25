@@ -189,4 +189,5 @@ x <- DEG_edgeR_func(folder_name=folder_name,
 ## Authors
 
 Main:Chrystian C. Sosa
+
 Other contributors: Indeewari Dissanayake, Gust Bilcke
