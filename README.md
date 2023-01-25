@@ -36,9 +36,9 @@ In the main folder the next files are saved:
   - plotBCV.pdf (Average log CPM Vs biological coefficient variation plot)
   - MDS.pdf (Multidimensional plot, each group is displayed in numbers)
 - Summaries per contrast 
-  - glmQLFTest_[CONTRAST]_pval_[pval]summary.csv (Summary of up and downregulated genes per contrast after apply a p value threshold)
+  - glmQLFTest_[CONTRAST]_pval_[pval]summary.csv (Summary of up and downregulated genes per contrast after apply a p-value threshold)
  
-### Differential expressed genes outcome format:
+## Differential expressed genes outcome format:
 
 "" | logFC | logCPM | F | PValue | FDR | status | status_name
 ------------ | ------------- | ------------- | ------------- | ------------- | ------------- | ------------- | -------------
@@ -61,6 +61,11 @@ TraesCS1A02G002700 | -0.517768365 | 5.575591155 | 11.08925656 | 0.010088987 | 0.
 
 
 # How to run the code:
+-  Configure the config file to run nf-core/rnaseq pipeline stages 1 and 3 (https://nf-co.re/rnaseq) (An example is available in the folder examples)
+-  Run nf-core/rnaseq pipeline
+-  If user have several salmon counts, please name the salmon file as salmon_[`folder_name`] (e.g. folder_name is "2")
+-  Detect metadata file to use. This is the sample file used for nf-core/rnaseq pipeline
+-  
 
 ```r
 
