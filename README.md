@@ -1,5 +1,5 @@
 # edgeR_nf-core-rnaseq
-This repository consists of a set of functions to use to implement an edgeR R package pipeline which obtains differential expressed genes automatically through CPU-parallelized computing. 
+This repository consists of a function to implement an edgeR R package pipeline which obtains differential expressed genes automatically through CPU-parallelized computing. 
 
 A full list of libraries needed to run this code is included below.
 
@@ -146,7 +146,7 @@ nextflow run nf-core/rnaseq --input /scratch/bis_klpoe/chsos/data/sample_files/r
 - Define if you want to use a  group_vect object to assign samples into groups.
   > The order you provide the groups must match to the sample order used in the sample file to run nf-core/rnaseq pipeline! 
 -  Define if you want to observe an exploratory plot in your R session with the parameter `plot_MDS`
-- Load the code
+- Load the code `edgeR_func.R`
 - Run
 
 
