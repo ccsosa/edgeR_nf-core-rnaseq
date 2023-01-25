@@ -16,10 +16,27 @@ A full list of libraries needed for run this code is included below.
 - Prepare the samples file for running nf-core/rnaseq (please see the file added in the examples folder
 
 ### Outcomes structure:
-This code creates a folder with the name given in the the `folder_name` parameter. This code will create two subfolders:
-#`csv`: CSV files obtained from the edgeR pipeline. Two files are created per contrast:
--  glmQLFTest_[CONTRAST]_pval_[pval]fulltable.csv (Outcome without p value filter)
--  glmQLFTest_[CONTRAST]_pval_[pval]_filtered.csv (Outcome with p value filter)
+This code creates a folder with the name given in the the `folder_name` parameter. The results have this structure:
+![Directory structure](https://github.com/ccsosa/edgeR_nf-core-rnaseq/blob/main/images/edgeR_outcomes.jpg)
+
+This code will create two subfolders:
+- `csv`: CSV files obtained from the edgeR pipeline. Two files are created per contrast:
+  - glmQLFTest_[CONTRAST]_pval_[pval]fulltable.csv (Outcome without p value filter)
+  - glmQLFTest_[CONTRAST]_pval_[pval]_filtered.csv (Outcome with a p value threshold filter)
+- `graphics`: subfolder to save the edgeR plots per contrast. Two files are created per contrast:
+  - plotMD_glmQLFTest_[CONTRAST].pdf (Average log CPM vs LFC  value displaying differential expressed genes)
+  - [CONTRAST]_BCV.pdf (Average Log2 CPM Vs Quarter root mean deviance)
+
+In the main folder the next files are saved:
+- Exploratory analysis:
+  - abundance_drought_tpm_genelevel.txt (Raw tpm for the samples provided)
+  - CPM_normalized.txt (Raw Counts per million per gene)
+  - library_size.txt (library sizes per sample)
+  - contrasts.csv (Contrast designed infered by limma and edgeR)
+  - plotBCV.pdf (Average log CPM Vs biological coefficient variation plot)
+  - MDS.pdf (Multidimensional plot, each group is displayed in numbers)
+- Summaries per contrast 
+  - glmQLFTest_[CONTRAST]_pval_[pval]summary.csv (Summary of up and downregulated genes per contrast after apply a p value threshold)
  
 # Differential expressed genes outcome format:
 
@@ -40,7 +57,7 @@ TraesCS1A02G002700 | -0.517768365 | 5.575591155 | 11.08925656 | 0.010088987 | 0.
 - status (logFC sign: 1 and -1 for positive and negative values respectively)
 - status_name : UP for positive logFC and DOWN for negative logFC)
 
-![Directory structure](https://github.com/ccsosa/edgeR_nf-core-rnaseq/blob/main/images/edgeR_outcomes.jpg)
+
 
 
 ### How to run the code:
