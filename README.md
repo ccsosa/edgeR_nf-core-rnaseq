@@ -1,5 +1,5 @@
 # edgeR_nf-core-rnaseq
-This repository consists of a function to implement an edgeR R package pipeline which obtains differential expressed genes automatically through CPU-parallelized computing. 
+This repository consists of a function to implement an edgeR R package pipeline which obtains differential expressed genes automatically through CPU-parallelized computing for pairwise contrasts. 
 
 A full list of libraries needed to run this code is included below.
 
