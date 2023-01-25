@@ -13,6 +13,7 @@ A full list of libraries needed to run this code is included below.
 - run_5.sh (Bash script to download the SRR samples from NCBI with fastq-dump)
 - run5.csv (nf-core/rnaseq sample file to be used to get the salmon counts)
 - run5_nf_test.sh (Bash script to run nextflow nf-core/rnaseq)
+- nfcore_rna_seq.config (Config file to run nf-core/rnaseq. This file is in the folder nextflow_config)
 
 # Description:
 
@@ -116,6 +117,7 @@ TraesCS1A02G002700 | -0.517768365 | 5.575591155 | 11.08925656 | 0.010088987 | 0.
     - fastq_2: Directory of the reverse fastq file for the SRR sample downloaded
     - strandedness: Represent the strand of the RNA-Seq experiment. Leave as unstranded. Salmon will detect strandedness automatically
       > For relevant information see: https://nf-co.re/rnaseq
+    - Configure resource to be used for the nf-core/rnaseq run (see in the nextflow_config file: nfcore_rna_seq.config)
 - Submit to your HPC for processing using your resource management tool (An example is provided in the examples folder: run5_nf_test.sh).
 ```
     #!/bin/bash
