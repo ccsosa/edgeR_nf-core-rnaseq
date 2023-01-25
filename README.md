@@ -9,13 +9,13 @@ A full list of libraries needed for run this code is included below.
 
 
 
-## Description:
+# Description:
 ![Code schema](https://raw.githubusercontent.com/ccsosa/edgeR_nf-core-rnaseq/main/images/edgeR_pipeline.drawio.png)
 
-### Steps
+# Steps
 - Prepare the samples file for running nf-core/rnaseq (please see the file added in the examples folder
 
-### Outcomes structure:
+# Outcomes structure:
 This code creates a folder with the name given in the the `folder_name` parameter. The results have this structure:
 ![Directory structure](https://github.com/ccsosa/edgeR_nf-core-rnaseq/blob/main/images/edgeR_outcomes.jpg)
 
@@ -38,7 +38,7 @@ In the main folder the next files are saved:
 - Summaries per contrast 
   - glmQLFTest_[CONTRAST]_pval_[pval]summary.csv (Summary of up and downregulated genes per contrast after apply a p value threshold)
  
-# Differential expressed genes outcome format:
+### Differential expressed genes outcome format:
 
 "" | logFC | logCPM | F | PValue | FDR | status | status_name
 ------------ | ------------- | ------------- | ------------- | ------------- | ------------- | ------------- | -------------
@@ -60,7 +60,8 @@ TraesCS1A02G002700 | -0.517768365 | 5.575591155 | 11.08925656 | 0.010088987 | 0.
 
 
 
-### How to run the code:
+# How to run the code:
+
 ```r
 
 
