@@ -22,7 +22,7 @@ This code creates a folder with the name given in the the `folder_name` paramete
 -  glmQLFTest_[CONTRAST]_pval_[pval]_filtered.csv (Outcome with p value filter)
 # These files have the following structure:
 
- | logFC | logCPM | F | PValue | FDR | status | status_name
+"" | logFC | logCPM | F | PValue | FDR | status | status_name
 ------------ | ------------- | ------------- | ------------- | ------------- | ------------- | ------------- | -------------
 TraesCS1A02G000200 | 0.116659367 | 1.677943702 | 0.118024516 | 0.739867646 | 0.820941735 | 1 | UP
 TraesCS1A02G000400 | -0.2276499 | 8.025249611 | 2.010384676 | 0.193246796 | 0.313335743 | -1 | DOWN
