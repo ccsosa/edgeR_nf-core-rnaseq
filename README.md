@@ -21,7 +21,7 @@ This code creates a folder with the name given in the the `folder_name` paramete
 -  glmQLFTest_[CONTRAST]_pval_[pval]fulltable.csv (Outcome without p value filter)
 -  glmQLFTest_[CONTRAST]_pval_[pval]_filtered.csv (Outcome with p value filter)
  
-# These files have the following structure:
+# Differential expressed genes outcome format:
 
 "" | logFC | logCPM | F | PValue | FDR | status | status_name
 ------------ | ------------- | ------------- | ------------- | ------------- | ------------- | ------------- | -------------
