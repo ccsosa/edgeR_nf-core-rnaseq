@@ -149,9 +149,9 @@ nextflow run nf-core/rnaseq --input /scratch/bis_klpoe/chsos/data/sample_files/r
 - Load the code `edgeR_func.R`
 - Run
 
+>If you want that controls always appear in this way Treatment-Control, please add a letter after C (e.g. Aluminium would be Taluminium, this ensure that the contrast will be Taluminum-Control)
 
 ```r
-
 
 
 ##############################################################################
