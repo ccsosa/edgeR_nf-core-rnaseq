@@ -118,7 +118,7 @@ TraesCS1A02G002700 | -0.517768365 | 5.575591155 | 11.08925656 | 0.010088987 | 0.
     - strandedness: Represent the strand of the RNA-Seq experiment. Leave as unstranded. Salmon will detect strandedness automatically
       > For relevant information see: https://nf-co.re/rnaseq
       
-      >If you want that controls always appear in this way Treatment-Control, please add a letter after C (e.g. Aluminium would be Taluminium, this ensure that the contrast will be Taluminum-Control)
+      > If you want that controls always appear in this way Treatment-Control, please add a letter after C in the alphabet (e.g. Aluminium would be Taluminium, this ensure that the contrast will be Taluminum-Control
       
     - Configure resource to be used for the nf-core/rnaseq run (see in the nextflow_config file: nfcore_rna_seq.config)
 - Submit to your HPC for processing using your resource management tool (An example is provided in the examples folder: run5_nf_test.sh).
