@@ -1,12 +1,10 @@
 
-DEG_edgeR_func_comb <- function(combinefolders=FALSE,out_name=NULL,folder_name, pval,out_dir,met_dir,plot_MDS,numCores,group_vect,gtf_file,samples_to_remove){
+DEG_edgeR_func_comb <- function(combinefolders=FALSE,out_name=NULL,folder_name, pval,out_dir,met_dir,plot_MDS,numCores,group_vect){
 
   ##############################################################################
   #Loading libraries
   library(ggplot2);library(edgeR);
-  library(tximport);library(parallel);
-  library(GenomicFeatures);library(readr)
-  
+  library(tximport);library(parallel)
   ##############################################################################
   #checking that combinefolders is not null
   if(!is.null(combinefolders)){
@@ -80,24 +78,30 @@ DEG_edgeR_func_comb <- function(combinefolders=FALSE,out_name=NULL,folder_name, 
     message("Reading salmon files")
   }
   
-  ##############################################################################
-  #load gtf file to read salmon
-  txdb <- GenomicFeatures::makeTxDbFromGFF(gtf_file)
-  k <- AnnotationDbi::keys(txdb, keytype = "GENEID")
-  tx2gene <- AnnotationDbi::select(txdb, keys = k, keytype = "GENEID", columns = "TXNAME")
-  tx2gene <- tx2gene[, 2:1]
-
   
-  samples_ori <- samples
-  samples_excluded <- samples_ori[samples_ori$SAMPLE %in% samples_to_remove,]
-  #removing samples 
-  if(!is.null(samples_to_remove)){
-    samples <- samples[!samples$SAMPLE %in% samples_to_remove,]
-  }
+  #reading and combining salmon_tx2gene.tsv files
+  tx2gene <- list()
+  for(i in 1:length(folder_name)){
+    tx2gene[[i]] <- read.table(paste0(data_dir[[i]],"/","salmon_tx2gene.tsv"))
+    };rm(i)
+  tx2gene <- do.call(cbind,tx2gene)
+  colnames(tx2gene) <- paste("V",1:ncol(tx2gene))
+
+    #reading metadata
+  #tx2gene
+  meta <- list()
+  for(i in 1:length(folder_name)){
+    meta[[i]] <- read.csv(paste0(met_dir,"/","run",folder_name[[i]],".csv"), header = TRUE, sep=",")
+    #meta[[i]]$folder_name <- folder_name[[i]]
+  };rm(i)
+  meta <- do.call(rbind,meta)
+  meta$trt <- sapply(strsplit(meta$sample,"_"),"[[",1)
+  
+  
   #reading quant files
-  #list1 = list.files(path = data_dir,pattern ="quant.sf",recursive = T,full.names = T)
-  list1 = paste0("D:/TESIS_PHD/CHAPTER3/salmon","/",samples$SAMPLE,"/","quant.sf")
+  list1 = list.files(path = data_dir,pattern ="quant.sf",recursive = T,full.names = T)
   #original approach
+  #list1 = paste0(data_dir,"/", meta$sample,"/", "quant.sf")
   
   #read salmon tximport
   txi <- tximport::tximport(files=list1, type = "salmon", tx2gene = tx2gene)
@@ -109,22 +113,20 @@ DEG_edgeR_func_comb <- function(combinefolders=FALSE,out_name=NULL,folder_name, 
   write.table(df, paste0(out_dir_1,"/","library_size.txt"), col.names = F, quote = F)
   
   ##############################################################################
-    meta <- samples
-  ##############################################################################
   #Testing that groups have more than one sample. (this avoid NA dispersion values)
-  trt_summary <- as.data.frame(tapply(meta$CONDITION,meta$CONDITION,length))
+  trt_summary <- as.data.frame(tapply(meta$trt,meta$trt,length))
   trt_summary$group <- row.names(trt_summary)
   trt_summary <- trt_summary[,c(2,1)]
   colnames(trt_summary) <- c("group","count")
   
-
+  
   #Using group file if it is available
   if(!is.null(group_vect)){
-    if(length(meta$CONDITION)!=length(group_vect)){
+    if(length(meta$trt)!=length(group_vect)){
       stop("You are providing a group_vect object that not match with the number of samples.
            Please cheack and resubmit")
     } else {
-      meta$CONDITION <-   group_vect
+      meta$trt <-   group_vect
     }
     
   } else {
@@ -141,9 +143,9 @@ DEG_edgeR_func_comb <- function(combinefolders=FALSE,out_name=NULL,folder_name, 
   message("Defining groups with the metadata provided and levels")
   
   # Defining treatments
-  colnames(data) <- meta$SAMPLE
-  colnames(ab) <- meta$SAMPLE
-  trt <- factor(meta$CONDITION)#,levels = levels)
+  colnames(data) <- meta$sample
+  colnames(ab) <- meta$sample
+  trt <- factor(meta$trt)#,levels = levels)
   
   #Defining possible combinations
   cmb_un <- as.data.frame(t(combn(levels(trt),2)))
@@ -186,12 +188,12 @@ DEG_edgeR_func_comb <- function(combinefolders=FALSE,out_name=NULL,folder_name, 
   #saving MDS with shapes (it plots numbers)
   
   MDS<- ggplot(data = MDS_df) +
-    geom_point(aes(x = t.x, y =t.y,shape = meta$CONDITION),size = 4)  +
+    geom_point(aes(x = t.x, y =t.y,shape = meta$trt),size = 4)  +
     theme_bw() +
     #    aes(label = meta$sample)+ #allpoints) +
     theme(legend.box="horizontal") +
-    xlab("Leading dim1") +
-    ylab("Leading dim2") +
+    xlab("Leading logFC dim1") +
+    ylab("Leading logFC dim2") +
     ggtitle("") +
     scale_shape_manual(values = c(1:length(trt), letters, LETTERS, "0", "1"))+
     theme(panel.grid =element_blank())
@@ -331,52 +333,71 @@ DEG_edgeR_func_comb <- function(combinefolders=FALSE,out_name=NULL,folder_name, 
 }
 
 ##############################################################################
+#examples
+#group_vect <- c("DT6H","CK0H","ABA6H","CK0H","DT6H","ABA6H","CK0H","DT6H","ABA6H")
+#group_vect <- NULL
+##############################################################################
+#parameters
+#folder_name <- c(1,2,3) #folder name
 pval = 0.05 #p value for filtering
 numCores <- 4 #number of cores to use in parallel
 plot_MDS <- TRUE #if plot should be appears in R session
-gtf_file <- "D:/TESIS_PHD/CHAPTER3/IRGSP-1.0_representative_transcript_exon_2022-09-01.gtf"
-salmon_folder <- "D:/TESIS_PHD/CHAPTER3/salmon"
-folder_name <- list.dirs(salmon_folder,recursive = F,full.names = F)
-samples <- read.table(paste0("D:/TESIS_PHD/CHAPTER3/","/SAMPLES.TSV"),header = T)
-group_vect <- NULL
-#group_vect <- samples$CONDITION
+#groups if it not easy to get from the headers
+##############################################################################
+#SRP098756 #done
+# folder_name <- c(1,2,3) #folder name
+# group_vect <- c("CROWN_C","CROWN_C","CROWN_D","CROWN_D", #1 folder
+#                 "CROWN_C","LEAVES_C","LEAVES_C","LEAVES_C", #2 folder
+#                 "CROWN_D","LEAVES_D","LEAVES_D","LEAVES_D", #2 folder
+#                 "ROOTS_C","ROOTS_C","ROOTS_C",#3 folder
+#                 "ROOTS_D","ROOTS_D","ROOTS_D") #3 folder
+# out_name <- "SRP098756"
+# combinefolders <- T
+##############################################################################
+#SRP237462 # done
+# folder_name <- 4 #folder name
+# group_vect <- c("D0H","D6H","D0H","D6H","D0H","D6H","UNKNOWN","UNKNOWN") #4 folder
+# combinefolders <- F
+# out_name <- "SRP237462"
+##############################################################################
+#SRP356530 # done
+# folder_name <- 5 #folder name
+# group_vect <- c("LEAVES_D","LEAVES_D","LEAVES_D",
+#                 "LEAVES_C","LEAVES_C","LEAVES_C") #5 folder
+# combinefolders <- F
+# out_name <- "SRP356530"
+##############################################################################
+#SRP257474 #
+# folder_name <- 6 #folder name
+# combinefolders <- F
+# group_vect <- c("DT6H","CK0H","ABA6H",
+#                 "CK0H","DT6H","ABA6H",
+#                 "CK0H","DT6H","ABA6H") #6 hours
+# out_name <- "SRP257474"
+##############################################################################
+#SRP072216 #done
+folder_name <- c(7,8,9,10) #folder name
+group_vect <- c("LEAVES_TABA","LEAVES_TABA","LEAVES_TABA","LEAVES_D","LEAVES_D", #7 folder
+                "LEAVES_D","LEAVES_C","LEAVES_C","LEAVES_C", #8 folder
+                "LEAVES_TABA","LEAVES_TABA","LEAVES_TABA","LEAVES_D","LEAVES_D", #9 folder
+                "LEAVES_D","LEAVES_C","LEAVES_C","LEAVES_C") #10 folder
 
 # group_vect <- c("WTLEAVES_TABA","WTLEAVES_TABA","WTLEAVES_TABA","WTLEAVES_D","WTLEAVES_D", #7 folder
 #                 "WTLEAVES_D","WTLEAVES_C","WTLEAVES_C","WTLEAVES_C", #8 folder
 #                 "TaPYLEAVES_TABA","TaPYLEAVES_TABA","TaPYLEAVES_TABA","TaPYLEAVES_D","TaPYLEAVES_D", #9 folder
 #                 "TaPYLEAVES_D","TaPYLEAVES_C","TaPYLEAVES_C","TaPYLEAVES_C") #10 folder
-out_name <- "COMPLETE"
+out_name <- "SRP072216"
 combinefolders <- T
-#new feature
-#samples_to_remove <- NULL
-samples_to_remove <- #NULL
-#                       #
-                      c("SRR4947481",
-                       "SRR4947485",
-                       "SRR4947489",
-                       "SRR4947493",
-                       "SRR4947497",
-                       "SRR4947501",
-                       "SRR4947505",
-                       "SRR4947509",
-
-
-
-                        # "SRR4947480" #THIS IS OK sortmerna and ribodetector
-                       "SRR4947496"# ELIMINATE sortmerna and ribodetector
-                       #"SRR4947488" # ELIMINATE sortmerna
-                      #  #"SRR4947504" #THIS IS OKsortmerna and ribodetector
-                        )
 ##############################################################################
 ##############################################################################
 ##############################################################################
 ##############################################################################
 #Directories
 #where are the salmon files
-data_dir <- paste0("D:/TESIS_PHD/CHAPTER3/salmon","/",folder_name)
+data_dir <- paste0("/scratch/bis_klpoe/chsos/analysis/RESULTS_NF/salmon_",folder_name)
 #defining output folder
-out_dir <- "D:/TESIS_PHD/CHAPTER3/DEG"
+out_dir <- "/scratch/bis_klpoe/chsos/analysis/DEG"
 #path where the nf core metadata is available
-met_dir <- "D:/TESIS_PHD/CHAPTER3/salmon"
+met_dir <- "/scratch/bis_klpoe/chsos/data/sample_files/DONE"
 ##############################################################################
-x <- DEG_edgeR_func_comb(combinefolders,out_name,folder_name, pval,out_dir,met_dir,plot_MDS,numCores,group_vect,gtf_file,samples_to_remove)
+x <- DEG_edgeR_func_comb(combinefolders,out_name,folder_name, pval,out_dir,met_dir,plot_MDS,numCores,group_vect)
