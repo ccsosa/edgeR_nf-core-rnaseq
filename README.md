@@ -211,7 +211,7 @@ There are new parameters here:
 
 ```r
 #SRP072216 #done
-folder_name <- c(7,8,9,10) #folder name
+folder_name <- c("7","8","9","10") #folder name
 group_vect <- c("LEAVES_TABA","LEAVES_TABA","LEAVES_TABA","LEAVES_D","LEAVES_D", #7 folder
                 "LEAVES_D","LEAVES_C","LEAVES_C","LEAVES_C", #8 folder
                 "LEAVES_TABA","LEAVES_TABA","LEAVES_TABA","LEAVES_D","LEAVES_D", #9 folder
