@@ -195,6 +195,9 @@ There are new parameters here:
 - 1.) out_name: Folder name for the outputs
 - 2.) combinefolders <- T is an order to join folders after the use of nf-core/rnaseq pipeline
 
+Please follow name the salmon folders as salmon_[name] (e.g. salmon_1) to use the code as is showed in the following graphic:
+![Code schema](https://raw.githubusercontent.com/ccsosa/edgeR_nf-core-rnaseq/main/images/SCREENSHOT_SALMON_CHUNKS.jpg)
+
 > group_vect parameter is list of the group to be used. Please introduce them in the same order as the folder and sample files
 
 ```r
