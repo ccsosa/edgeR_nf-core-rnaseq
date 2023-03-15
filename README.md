@@ -189,6 +189,69 @@ x <- DEG_edgeR_func(folder_name=folder_name,
 
 ```
 
+# Joining several runs:
+Please use the edgeR_func_QL_combined_chunks.R function
+There are new parameters here:
+- 1.) gtf_file Path where the GTF file is called. This function requires the use of a GTF to join the quant.sf files  in one run in R.
+> group_vect parameter is list of the group to be used. Please introduce them in the same order as the folder and sample files
+- 2.) samples_to_remove This is a list of samples to do not use for the DEG analysis
+
+> group_vect parameter is list of the group to be used. Please introduce them in the same order as the folder and sample files
+
+> list1 (Line 99 of the code. Please add the path where the salmon outputs are to use in the code
+```r
+##############################################################################
+pval = 0.05 #p value for filtering
+numCores <- 4 #number of cores to use in parallel
+plot_MDS <- TRUE #if plot should be appears in R session
+gtf_file <- "D:/TESIS_PHD/CHAPTER3/IRGSP-1.0_representative_transcript_exon_2022-09-01.gtf"
+salmon_folder <- "D:/TESIS_PHD/CHAPTER3/salmon"
+folder_name <- list.dirs(salmon_folder,recursive = F,full.names = F)
+samples <- read.table(paste0("D:/TESIS_PHD/CHAPTER3/","/SAMPLES.TSV"),header = T)
+group_vect <- NULL
+#group_vect <- samples$CONDITION
+
+# group_vect <- c("WTLEAVES_TABA","WTLEAVES_TABA","WTLEAVES_TABA","WTLEAVES_D","WTLEAVES_D", #7 folder
+#                 "WTLEAVES_D","WTLEAVES_C","WTLEAVES_C","WTLEAVES_C", #8 folder
+#                 "TaPYLEAVES_TABA","TaPYLEAVES_TABA","TaPYLEAVES_TABA","TaPYLEAVES_D","TaPYLEAVES_D", #9 folder
+#                 "TaPYLEAVES_D","TaPYLEAVES_C","TaPYLEAVES_C","TaPYLEAVES_C") #10 folder
+out_name <- "COMPLETE"
+combinefolders <- T
+#new feature
+#samples_to_remove <- NULL
+samples_to_remove <- #NULL
+#                       #
+                      c("SRR4947481",
+                       "SRR4947485",
+                       "SRR4947489",
+                       "SRR4947493",
+                       "SRR4947497",
+                       "SRR4947501",
+                       "SRR4947505",
+                       "SRR4947509",
+
+
+
+                        # "SRR4947480" #THIS IS OK sortmerna and ribodetector
+                       "SRR4947496"# ELIMINATE sortmerna and ribodetector
+                       #"SRR4947488" # ELIMINATE sortmerna
+                      #  #"SRR4947504" #THIS IS OKsortmerna and ribodetector
+                        )
+##############################################################################
+##############################################################################
+##############################################################################
+##############################################################################
+#Directories
+#where are the salmon files
+data_dir <- paste0("D:/TESIS_PHD/CHAPTER3/salmon","/",folder_name)
+#defining output folder
+out_dir <- "D:/TESIS_PHD/CHAPTER3/DEG"
+#path where the nf core metadata is available
+met_dir <- "D:/TESIS_PHD/CHAPTER3/salmon"
+##############################################################################
+x <- DEG_edgeR_func_comb(combinefolders,out_name,folder_name, pval,out_dir,met_dir,plot_MDS,numCores,group_vect,gtf_file,samples_to_remove)
+
+```
 ## Authors
 
 Main:Chrystian C. Sosa
