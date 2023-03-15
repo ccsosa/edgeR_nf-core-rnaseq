@@ -195,6 +195,7 @@ There are new parameters here:
 - 1.) gtf_file Path where the GTF file is called. This function requires the use of a GTF to join the quant.sf files  in one run in R.
 > group_vect parameter is list of the group to be used. Please introduce them in the same order as the folder and sample files
 - 2.) samples_to_remove This is a list of samples to do not use for the DEG analysis
+- 3.) out_name: Folder name for the outputs
 
 > group_vect parameter is list of the group to be used. Please introduce them in the same order as the folder and sample files
 
