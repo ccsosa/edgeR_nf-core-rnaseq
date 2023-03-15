@@ -198,9 +198,11 @@ There are new parameters here:
 > group_vect parameter is list of the group to be used. Please introduce them in the same order as the folder and sample files
 
 > save samples files in a folder and name them as run[name].csv (e.g. run7.csv,run8.csv,run9.csv,run10.csv) to use the code as is showed in the following image:
+
 ![SALMON_OUT](https://raw.githubusercontent.com/ccsosa/edgeR_nf-core-rnaseq/main/images/SCREENSHOT_RUNS_CHUNKS.jpg)
 
 > save salmon folder in a folder and name them as salmon_[name] (e.g. salmon_7,salmon_8,salmon_9,salmon_10) to use the code as is showed in the following image:
+
 ![SALMON_OUT](https://raw.githubusercontent.com/ccsosa/edgeR_nf-core-rnaseq/main/images/SCREENSHOT_SALMON_CHUNKS.jpg)
 
 > the name of the sample files and salmon folder name must following the names described above! Thus, run7.csv and salmon_7 represent the seven run and they will be used in the code.
