@@ -170,14 +170,14 @@ group_vect <- c("LEAVES_D","LEAVES_D","LEAVES_D",
 ##############################################################################
 #Directories
 #where are the salmon files
-data_dir <- paste0("/scratch/bis_klpoe/chsos/analysis/RESULTS_NF/salmon_",folder_name)
+data_dir_s <- paste0("/scratch/bis_klpoe/chsos/analysis/RESULTS_NF/salmon_",folder_name)
 #defining output folder
 out_dir <- "/scratch/bis_klpoe/chsos/analysis/DEG"
 #path where the nf core metadata is available
 met_dir <- "/scratch/bis_klpoe/chsos/data/sample_files/DONE"
 ##############################################################################
 x <- DEG_edgeR_func(folder_name=folder_name,
-                    data_dir=data_dir,
+                    data_dir=data_dir_s,
                     pval=pval,
                     out_dir=out_dir,
                     met_dir=met_dir,
